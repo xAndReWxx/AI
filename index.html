@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PhysioAI Pro</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ========== MODALS ========== -->
+
+<!-- Video Tutorial Modal -->
+<div id="video-modal" class="modal-overlay" style="display:none">
+    <div class="modal-card">
+        <div class="modal-header">
+            <h2 id="modal-title">شاهد التمرين</h2>
+            <button class="modal-close" onclick="closeVideoModal()">✕</button>
+        </div>
+        <div class="video-frame-wrap">
+            <iframe id="tutorial-iframe" src="" width="100%" height="100%"
+                frameborder="0" allowfullscreen
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture">
+            </iframe>
+        </div>
+        <div class="modal-tips" id="modal-tips"></div>
+        <button class="btn-primary" onclick="closeVideoModal()" style="margin-top:16px">✅ فهمت — ابدأ الجلسة</button>
+    </div>
+</div>
+
+<!-- Patient Profile Modal -->
+<div id="patient-modal" class="modal-overlay" style="display:none">
+    <div class="modal-card" style="max-width:700px">
+        <div class="modal-header">
+            <h2 id="pmodal-name">ملف المريض</h2>
+            <button class="modal-close" onclick="document.getElementById('patient-modal').style.display='none'">✕</button>
+        </div>
+        <div id="patient-modal-body"></div>
+    </div>
+</div>
+
+<!-- ========== SCREEN 0: LOGIN ========== -->
+<div id="screen-login" class="screen active">
+    <div class="login-bg">
+        <div class="login-orb orb1"></div>
+        <div class="login-orb orb2"></div>
+        <div class="login-orb orb3"></div>
+    </div>
+    <div class="login-container">
+        <div class="login-logo">
+            <div class="login-logo-icon">⚕</div>
+            <h1>PhysioAI <span>Pro</span></h1>
+            <p>نظام العلاج الطبيعي الذكي</p>
+        </div>
+        <div class="login-card">
+            <div class="login-tabs">
+                <button class="login-tab active" onclick="switchLoginTab('doctor')">🩺 دكتور</button>
+                <button class="login-tab" onclick="switchLoginTab('admin')">🔧 أدمن</button>
+            </div>
+            <div id="login-error" class="login-error" style="display:none"></div>
+            <div class="form-group" style="margin-bottom:14px">
+                <label>البريد الإلكتروني</label>
+                <input type="email" id="login-email" placeholder="doctor@clinic.com" dir="ltr">
+            </div>
+            <div class="form-group" style="margin-bottom:20px">
+                <label>كلمة المرور</label>
+                <input type="password" id="login-pass" placeholder="••••••••" dir="ltr">
+            </div>
+            <button class="btn-primary" onclick="doLogin()" id="login-btn">
+                <span>🔐</span> دخول
+            </button>
+            <div class="login-divider">أو</div>
+            <button class="btn-secondary" style="width:100%" onclick="doGuestLogin()">
+                👁️ دخول كضيف (بدون حساب)
+            </button>
+            <div style="text-align:center;margin-top:14px">
+                <button class="btn-link" onclick="doRegister()">إنشاء حساب جديد →</button>
+            </div>
+        </div>
+        <div class="login-footer">
+            <span id="firebase-status-login" class="fb-status">⏳ جاري الاتصال...</span>
+        </div>
+    </div>
+</div>
+
+<!-- ========== SCREEN 1: DASHBOARD ========== -->
+<div id="screen-dashboard" class="screen">
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="sidebar-logo">PhysioAI<span>Pro</span></div>
+        <nav class="sidebar-nav">
+            <button class="nav-item active" onclick="dashTab('overview')" id="nav-overview">
+                <span class="nav-icon">📊</span> نظرة عامة
+            </button>
+            <button class="nav-item" onclick="dashTab('patients')" id="nav-patients">
+                <span class="nav-icon">👥</span> المرضى
+            </button>
+            <button class="nav-item" onclick="dashTab('sessions')" id="nav-sessions">
+                <span class="nav-icon">🏋️</span> الجلسات
+            </button>
+            <button class="nav-item" onclick="dashTab('analytics')" id="nav-analytics">
+                <span class="nav-icon">📈</span> التحليلات
+            </button>
+        </nav>
+        <div class="sidebar-bottom">
+            <div class="sidebar-user" id="sidebar-user">
+                <div class="user-avatar" id="user-avatar">D</div>
+                <div class="user-info">
+                    <div class="user-name" id="user-name">الدكتور</div>
+                    <div class="user-role" id="user-role">معالج</div>
+                </div>
+            </div>
+            <button class="nav-item" onclick="showScreen('screen-setup')">
+                <span class="nav-icon">➕</span> جلسة جديدة
+            </button>
+            <button class="nav-item danger" onclick="doLogout()">
+                <span class="nav-icon">🚪</span> خروج
+            </button>
+        </div>
+    </div>
+
+    <!-- Main -->
+    <div class="dashboard-main">
+
+        <!-- Top Bar -->
+        <div class="dash-topbar">
+            <div>
+                <h2 class="dash-title" id="dash-title">نظرة عامة</h2>
+                <p class="dash-sub" id="dash-sub">مرحباً بك في PhysioAI Pro</p>
+            </div>
+            <div class="dash-topbar-actions">
+                <button class="btn-icon" onclick="refreshDashboard()" title="تحديث">🔄</button>
+                <span class="db-badge" id="db-badge-dash">
+                    <span class="db-dot online"></span> Firebase متصل
+                </span>
+            </div>
+        </div>
+
+        <!-- Tab: Overview -->
+        <div id="tab-overview" class="dash-tab active">
+            <div class="kpi-grid">
+                <div class="kpi-card">
+                    <div class="kpi-icon">👥</div>
+                    <div class="kpi-val" id="kpi-patients">—</div>
+                    <div class="kpi-label">إجمالي المرضى</div>
+                    <div class="kpi-trend" id="kpi-patients-trend"></div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-icon">🏋️</div>
+                    <div class="kpi-val" id="kpi-sessions">—</div>
+                    <div class="kpi-label">جلسات مكتملة</div>
+                    <div class="kpi-trend" id="kpi-sessions-trend"></div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-icon">⭐</div>
+                    <div class="kpi-val" id="kpi-avg-stars">—</div>
+                    <div class="kpi-label">متوسط الجودة</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-icon">📐</div>
+                    <div class="kpi-val" id="kpi-avg-rom">—°</div>
+                    <div class="kpi-label">متوسط مدى الحركة</div>
+                </div>
+            </div>
+
+            <div class="dash-grid-2">
+                <div class="dash-card">
+                    <div class="dash-card-header">
+                        <h3>📈 الجلسات خلال الأسبوع</h3>
+                    </div>
+                    <canvas id="weeklyChart" height="180"></canvas>
+                </div>
+                <div class="dash-card">
+                    <div class="dash-card-header">
+                        <h3>💪 توزيع التمارين</h3>
+                    </div>
+                    <canvas id="exerciseChart" height="180"></canvas>
+                </div>
+            </div>
+
+            <div class="dash-card">
+                <div class="dash-card-header">
+                    <h3>🕐 آخر الجلسات</h3>
+                    <button class="btn-sm" onclick="dashTab('sessions')">عرض الكل</button>
+                </div>
+                <div id="recent-sessions-list"></div>
+            </div>
+        </div>
+
+        <!-- Tab: Patients -->
+        <div id="tab-patients" class="dash-tab">
+            <div class="tab-toolbar">
+                <input class="search-input" type="text" id="patient-search" placeholder="🔍 بحث عن مريض..." oninput="filterPatients()">
+                <button class="btn-primary" style="width:auto;padding:10px 20px" onclick="showNewPatientForm()">+ مريض جديد</button>
+            </div>
+            <div id="new-patient-form" class="inline-form" style="display:none">
+                <div class="form-row">
+                    <div class="form-group"><label>الاسم</label><input type="text" id="np-name" placeholder="اسم المريض"></div>
+                    <div class="form-group"><label>العمر</label><input type="number" id="np-age" placeholder="العمر"></div>
+                    <div class="form-group"><label>التشخيص</label><input type="text" id="np-diag" placeholder="التشخيص"></div>
+                    <div class="form-group"><label>رقم الهاتف</label><input type="text" id="np-phone" placeholder="01xxxxxxxxx"></div>
+                </div>
+                <div style="display:flex;gap:10px;margin-top:12px">
+                    <button class="btn-primary" style="width:auto;padding:10px 24px" onclick="addNewPatient()">💾 حفظ</button>
+                    <button class="btn-secondary" onclick="document.getElementById('new-patient-form').style.display='none'">إلغاء</button>
+                </div>
+            </div>
+            <div id="patients-table-wrap">
+                <table class="data-table" id="patients-table">
+                    <thead><tr>
+                        <th>المريض</th><th>العمر</th><th>التشخيص</th>
+                        <th>الجلسات</th><th>آخر جلسة</th><th>الحالة</th><th></th>
+                    </tr></thead>
+                    <tbody id="patients-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Tab: Sessions -->
+        <div id="tab-sessions" class="dash-tab">
+            <div class="tab-toolbar">
+                <input class="search-input" type="text" id="session-search" placeholder="🔍 بحث في الجلسات..." oninput="filterSessions()">
+                <select class="search-input" id="session-filter-ex" style="width:auto" onchange="filterSessions()">
+                    <option value="">كل التمارين</option>
+                    <option>ثني الكوع</option><option>رفع الكتف</option>
+                    <option>ثني الركبة</option><option>رفع الورك</option>
+                </select>
+            </div>
+            <table class="data-table">
+                <thead><tr>
+                    <th>المريض</th><th>التمرين</th><th>التكرارات</th>
+                    <th>مدى الحركة</th><th>الجودة</th><th>المدة</th><th>التاريخ</th><th></th>
+                </tr></thead>
+                <tbody id="sessions-tbody"></tbody>
+            </table>
+        </div>
+
+        <!-- Tab: Analytics -->
+        <div id="tab-analytics" class="dash-tab">
+            <div class="analytics-filters">
+                <select class="search-input" id="analytics-patient" style="width:220px">
+                    <option value="">كل المرضى</option>
+                </select>
+                <select class="search-input" id="analytics-exercise" style="width:180px">
+                    <option value="">كل التمارين</option>
+                    <option>ثني الكوع</option><option>رفع الكتف</option>
+                    <option>ثني الركبة</option><option>رفع الورك</option>
+                </select>
+                <button class="btn-primary" style="width:auto;padding:10px 20px" onclick="loadAnalytics()">تحديث</button>
+            </div>
+            <div class="dash-grid-2">
+                <div class="dash-card">
+                    <div class="dash-card-header"><h3>📐 تطور مدى الحركة (ROM)</h3></div>
+                    <canvas id="romProgressChart" height="200"></canvas>
+                </div>
+                <div class="dash-card">
+                    <div class="dash-card-header"><h3>🔁 تطور عدد التكرارات</h3></div>
+                    <canvas id="repsProgressChart" height="200"></canvas>
+                </div>
+            </div>
+            <div class="dash-card">
+                <div class="dash-card-header"><h3>⭐ تطور جودة الأداء</h3></div>
+                <canvas id="qualityProgressChart" height="160"></canvas>
+            </div>
+            <div class="dash-card" style="margin-top:16px">
+                <div class="dash-card-header">
+                    <h3>📋 ملخص إحصائي</h3>
+                    <button class="btn-sm" onclick="exportExcel()">📥 تصدير Excel</button>
+                </div>
+                <div id="analytics-summary"></div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- ========== SCREEN 2: SETUP ========== -->
+<div id="screen-setup" class="screen">
+    <div class="setup-bg"></div>
+    <div class="setup-topbar">
+        <button class="btn-back" onclick="showScreen('screen-dashboard')">← لوحة التحكم</button>
+        <span class="db-badge">
+            <span class="db-dot" id="db-indicator"></span>
+            <span id="db-label">Firebase</span>
+        </span>
+    </div>
+    <div class="setup-container">
+        <div class="logo-area">
+            <div class="logo-pulse"></div>
+            <h1 class="logo-text">جلسة <span>جديدة</span></h1>
+            <p class="logo-sub">أدخل بيانات المريض واختر التمرين</p>
+        </div>
+
+        <div class="setup-card">
+            <div class="card-header"><span class="card-icon">🏥</span><h2>بيانات الجلسة</h2></div>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>اسم المريض</label>
+                    <input type="text" id="patient-name" placeholder="أدخل الاسم...">
+                </div>
+                <div class="form-group">
+                    <label>العمر</label>
+                    <input type="number" id="patient-age" placeholder="السن" min="5" max="100">
+                </div>
+                <div class="form-group full-width">
+                    <label>التشخيص / السبب</label>
+                    <input type="text" id="diagnosis" placeholder="مثال: إعادة تأهيل ما بعد الجراحة">
+                </div>
+            </div>
+
+            <div class="exercise-picker">
+                <label>اختر التمرين</label>
+                <div class="exercise-grid" id="exercise-grid">
+                    <div class="ex-card selected" data-exercise="bicep">
+                        <div class="ex-icon">💪</div>
+                        <div class="ex-name">ثني الكوع</div>
+                        <div class="ex-sub">Bicep Curl</div>
+                        <button class="ex-video-btn" onclick="openVideoModal(event,'bicep')">▶ شاهد</button>
+                    </div>
+                    <div class="ex-card" data-exercise="shoulder">
+                        <div class="ex-icon">🔄</div>
+                        <div class="ex-name">رفع الكتف</div>
+                        <div class="ex-sub">Shoulder Flex</div>
+                        <button class="ex-video-btn" onclick="openVideoModal(event,'shoulder')">▶ شاهد</button>
+                    </div>
+                    <div class="ex-card" data-exercise="knee">
+                        <div class="ex-icon">🦵</div>
+                        <div class="ex-name">ثني الركبة</div>
+                        <div class="ex-sub">Knee Flexion</div>
+                        <button class="ex-video-btn" onclick="openVideoModal(event,'knee')">▶ شاهد</button>
+                    </div>
+                    <div class="ex-card" data-exercise="hip">
+                        <div class="ex-icon">🏃</div>
+                        <div class="ex-name">رفع الورك</div>
+                        <div class="ex-sub">Hip Flexion</div>
+                        <button class="ex-video-btn" onclick="openVideoModal(event,'hip')">▶ شاهد</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="session-params">
+                <div class="param-box">
+                    <label>عدد المجموعات</label>
+                    <div class="param-control">
+                        <button onclick="changeParam('sets',-1)">−</button>
+                        <span id="sets-val">3</span>
+                        <button onclick="changeParam('sets',1)">+</button>
+                    </div>
+                </div>
+                <div class="param-box">
+                    <label>تكرار لكل مجموعة</label>
+                    <div class="param-control">
+                        <button onclick="changeParam('repsPerSet',-1)">−</button>
+                        <span id="repsPerSet-val">10</span>
+                        <button onclick="changeParam('repsPerSet',1)">+</button>
+                    </div>
+                </div>
+                <div class="param-box">
+                    <label>راحة (ثانية)</label>
+                    <div class="param-control">
+                        <button onclick="changeParam('restTime',-5)">−</button>
+                        <span id="restTime-val">30</span>
+                        <button onclick="changeParam('restTime',5)">+</button>
+                    </div>
+                </div>
+            </div>
+            <button class="btn-primary" onclick="startSession()"><span>🚀</span> ابدأ الجلسة</button>
+        </div>
+    </div>
+</div>
+
+<!-- ========== SCREEN 3: EXERCISE ========== -->
+<div id="screen-exercise" class="screen">
+    <div class="top-bar">
+        <div class="patient-chip">
+            <span class="chip-icon">👤</span>
+            <span id="display-name">—</span>
+        </div>
+        <div class="ai-eyes">
+            <div class="eye" id="eye-left"></div>
+            <div class="eye" id="eye-right"></div>
+        </div>
+        <button class="btn-end" onclick="endSession()">إنهاء ◼</button>
+    </div>
+
+    <div class="exercise-layout">
+        <!-- Camera -->
+        <div class="camera-panel">
+            <div class="exercise-badge" id="exercise-badge">💪 ثني الكوع</div>
+            <div class="video-wrap">
+                <video id="input-video" autoplay muted playsinline></video>
+                <canvas id="output-canvas"></canvas>
+                <canvas id="guide-canvas"></canvas>
+                <div class="angle-overlay" id="angle-overlay">--°</div>
+                <!-- Form Error Alerts -->
+                <div class="form-alert" id="form-alert" style="display:none"></div>
+            </div>
+            <div class="chart-wrap"><canvas id="angleChart"></canvas></div>
+        </div>
+
+        <!-- 3D Avatar -->
+        <div class="avatar-panel">
+            <div class="avatar-header">
+                <span class="avatar-label">🦴 مجسم 3D</span>
+                <span class="avatar-hint">حركة حقيقية</span>
+            </div>
+            <canvas id="avatar-canvas"></canvas>
+            <div class="avatar-info">
+                <span id="avatar-angle-label">الزاوية: --°</span>
+                <span id="avatar-stage-label">انتظار</span>
+            </div>
+        </div>
+
+        <!-- Stats -->
+        <div class="stats-panel">
+            <div class="feedback-card">
+                <div class="feedback-icon" id="feedback-icon">🤖</div>
+                <div class="feedback-text" id="feedback-text">جاهز للبدء...</div>
+            </div>
+            <div class="set-tracker">
+                <div class="set-header">
+                    <span>المجموعة</span>
+                    <span id="set-display">1 / 3</span>
+                </div>
+                <div class="set-dots" id="set-dots"></div>
+            </div>
+            <div class="rep-card">
+                <div class="rep-label">التكرار</div>
+                <div class="rep-number" id="rep-number">0</div>
+                <div class="rep-goal" id="rep-goal">الهدف: 10</div>
+                <div class="rep-bar-wrap"><div class="rep-bar" id="rep-bar"></div></div>
+            </div>
+            <div class="stats-grid">
+                <div class="stat-item"><div class="stat-value" id="stat-rom">0°</div><div class="stat-label">مدى الحركة</div></div>
+                <div class="stat-item"><div class="stat-value" id="stat-min">--°</div><div class="stat-label">أدنى زاوية</div></div>
+                <div class="stat-item"><div class="stat-value" id="stat-max">--°</div><div class="stat-label">أعلى زاوية</div></div>
+                <div class="stat-item"><div class="stat-value" id="stat-timer">00:00</div><div class="stat-label">وقت الجلسة</div></div>
+            </div>
+            <div class="quality-card">
+                <div class="quality-label">جودة الأداء</div>
+                <div class="stars" id="quality-stars"><span>☆</span><span>☆</span><span>☆</span><span>☆</span><span>☆</span></div>
+                <div class="quality-text" id="quality-text">—</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rest Overlay -->
+    <div class="rest-overlay" id="rest-overlay" style="display:none">
+        <div class="rest-card">
+            <div class="rest-icon">😮‍💨</div>
+            <h2>وقت الراحة</h2>
+            <div class="rest-timer" id="rest-timer">30</div>
+            <div class="rest-label">ثانية متبقية</div>
+            <div class="rest-next" id="rest-next"></div>
+            <button class="btn-skip" onclick="skipRest()">تخطي ←</button>
+        </div>
+    </div>
+</div>
+
+<!-- ========== SCREEN 4: REPORT ========== -->
+<div id="screen-report" class="screen">
+    <div class="report-container">
+        <div class="report-header">
+            <div class="report-logo">PhysioAI <span>Pro</span></div>
+            <div class="report-date" id="report-date"></div>
+        </div>
+        <div class="report-patient" id="report-patient"></div>
+        <div class="report-summary" id="report-summary"></div>
+        <div class="report-chart-wrap">
+            <h3>منحنى الحركة</h3>
+            <canvas id="reportChart"></canvas>
+        </div>
+        <div class="report-analysis" id="report-analysis"></div>
+        <div class="db-save-status" id="db-save-status"></div>
+        <div class="report-actions">
+            <button class="btn-primary" onclick="printReport()">🖨️ طباعة / PDF</button>
+            <button class="btn-primary" style="background:#1d6b48" onclick="exportSessionExcel()">📥 تصدير Excel</button>
+            <button class="btn-secondary" onclick="showScreen('screen-setup')">➕ جلسة جديدة</button>
+            <button class="btn-secondary" onclick="showScreen('screen-dashboard')">📊 لوحة التحكم</button>
+        </div>
+        <p class="report-disclaimer">⚠️ هذا التقرير للاستخدام الطبي المساعد فقط — يجب مراجعة الطبيب المختص</p>
+    </div>
+</div>
+
+<!-- Firebase SDKs -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
